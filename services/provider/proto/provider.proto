@@ -82,6 +82,16 @@ message GetDesiredClientStateRequest{
 message KubeObject {
     // Bytes holds the serialized bytes of the kube object
     bytes bytes  = 1;
+    // action specifies the action that the client needs to perform with the resource
+    action action = 2;
+    // subResource specifies the name of the subresource that the bytes contains
+    optional string subResource = 3;
+}
+
+enum action {
+  OPERATION_UNSPECIFIED = 0;
+  CREATE_OR_UPDATE = 1;
+  UPDATE_SUBRESOURCE = 2;
 }
 
 // RbdDriverRequirements holds the desired spec of the rbd driver
