@@ -121,18 +121,10 @@ type sanitizeFlags struct {
 	skipStatus   bool
 }
 
-type ClientAction int
-
-const (
-	_ ClientAction = iota
-	CreateOrUpdate
-	UpdateSubresource
-)
-
 type kubeObject struct {
 	object       client.Object
-	clientAction ClientAction
-	subresource  string
+	clientAction pb.KubeClientOp
+	subresource  pb.SubResource
 }
 
 func NewOCSProviderServer(ctx context.Context, namespace string) (*OCSProviderServer, error) {
@@ -316,12 +308,13 @@ func (s *OCSProviderServer) GetDesiredClientState(ctx context.Context, req *pb.G
 
 		response := &pb.GetDesiredClientStateResponse{}
 
-		for _, kubeResource := range kubeResources {
-			gvk, err := apiutil.GVKForObject(kubeResource.object, s.scheme)
+		for i := range kubeResources {
+			kubeResource := kubeResources[i].object
+			gvk, err := apiutil.GVKForObject(kubeResource, s.scheme)
 			if err != nil {
 				return nil, err
 			}
-			if kubeResource.object.GetName() == "" {
+			if kubeResource.GetName() == "" {
 				logger.Error(fmt.Errorf("invalid resource"), "resource is missing a name", "kubeResource", kubeResource)
 				return nil, status.Errorf(codes.Internal, "failed to produce client state.")
 			}
@@ -337,26 +330,26 @@ func (s *OCSProviderServer) GetDesiredClientState(ctx context.Context, req *pb.G
 				gvk.Version = "v1alpha1"
 			}
 
-			kubeResource.object.GetObjectKind().SetGroupVersionKind(gvk)
+			kubeResource.GetObjectKind().SetGroupVersionKind(gvk)
 			switch gvk.Kind {
 			case "ObjectBucketClaim", "ObjectBucket":
 				sanitizeKubeResource(
-					kubeResource.object,
+					kubeResource,
 					sanitizeFlags{
 						skipStatus: true,
 					},
 				)
 			default:
 				sanitizeKubeResource(
-					kubeResource.object,
+					kubeResource,
 					sanitizeFlags{},
 				)
 			}
-			kubeResourceBytes := util.JsonMustMarshal(kubeResource.object)
+			kubeResourceBytes := util.JsonMustMarshal(kubeResource)
 			response.KubeObjects = append(response.KubeObjects, &pb.KubeObject{
 				Bytes:       kubeResourceBytes,
-				Action:      pb.Action(kubeResource.clientAction),
-				SubResource: &kubeResource.subresource,
+				Op:          kubeResources[i].clientAction,
+				SubResource: &kubeResources[i].subresource,
 			})
 		}
 
@@ -1289,7 +1282,7 @@ func (s *OCSProviderServer) getKubeResources(ctx context.Context, logger logr.Lo
 	if cephConnection, err := s.getDesiredCephConnection(ctx, consumer, storageCluster); err == nil {
 		kubeResources = append(kubeResources, kubeObject{
 			object:       cephConnection,
-			clientAction: CreateOrUpdate,
+			clientAction: pb.KubeClientOp_CREATE_OR_UPDATE,
 		})
 	} else {
 		return nil, err
@@ -1602,7 +1595,7 @@ func (s *OCSProviderServer) appendClientProfileKubeResources(
 	for _, profileObj := range profileMap {
 		kubeResources = append(kubeResources, kubeObject{
 			object:       profileObj,
-			clientAction: CreateOrUpdate,
+			clientAction: pb.KubeClientOp_CREATE_OR_UPDATE,
 		})
 	}
 	return kubeResources, nil
@@ -1714,7 +1707,7 @@ func (s *OCSProviderServer) appendCephClientSecretKubeResource(
 
 	return append(kubeResources, kubeObject{
 		object:       cephUserSecret,
-		clientAction: CreateOrUpdate,
+		clientAction: pb.KubeClientOp_CREATE_OR_UPDATE,
 	}), nil
 }
 
@@ -2183,7 +2176,7 @@ func (s *OCSProviderServer) appendClusterResourceQuotaKubeResources(
 
 		kubeResources = append(kubeResources, kubeObject{
 			object:       clusterResourceQuota,
-			clientAction: CreateOrUpdate,
+			clientAction: pb.KubeClientOp_CREATE_OR_UPDATE,
 		})
 	}
 	return kubeResources, nil
@@ -2235,7 +2228,7 @@ func (s *OCSProviderServer) appendClientProfileMappingKubeResources(
 			kubeResources,
 			kubeObject{
 				object:       clientProfileMapping,
-				clientAction: CreateOrUpdate,
+				clientAction: pb.KubeClientOp_CREATE_OR_UPDATE,
 			},
 		)
 	}
@@ -2282,19 +2275,19 @@ func (s *OCSProviderServer) appendOBCResources(
 		kubeResources = append(kubeResources,
 			kubeObject{
 				object:       ob,
-				clientAction: CreateOrUpdate,
+				clientAction: pb.KubeClientOp_CREATE_OR_UPDATE,
 			},
 			kubeObject{
 				object:       configMap,
-				clientAction: CreateOrUpdate,
+				clientAction: pb.KubeClientOp_CREATE_OR_UPDATE,
 			}, kubeObject{
 				object:       secret,
-				clientAction: CreateOrUpdate,
+				clientAction: pb.KubeClientOp_CREATE_OR_UPDATE,
 			},
 			kubeObject{
 				object:       obc,
-				clientAction: UpdateSubresource,
-				subresource:  "Status",
+				clientAction: pb.KubeClientOp_UPDATE_SUB_RESOURCE,
+				subresource:  pb.SubResource_SUB_RESOURCE_STATUS,
 			},
 		)
 	}
@@ -2489,7 +2482,7 @@ func getKubeResourcesForClass[T CommonClassSpecAccessors](
 			distKubeObj.SetName(destName)
 			kubeResources = append(kubeResources, kubeObject{
 				object:       distKubeObj,
-				clientAction: CreateOrUpdate,
+				clientAction: pb.KubeClientOp_CREATE_OR_UPDATE,
 			})
 		}
 	}
