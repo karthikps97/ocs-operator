@@ -128,6 +128,7 @@ rules:
       - objectbucket.io
     resources:
       - objectbucketclaims
+      - objectbuckets
     verbs:
       - get
       - list
