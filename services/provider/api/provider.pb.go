@@ -442,9 +442,9 @@ type KubeObject struct {
 
 	// Bytes holds the serialized bytes of the kube object
 	Bytes []byte `protobuf:"bytes,1,opt,name=bytes,proto3" json:"bytes,omitempty"`
-	// specifies the action that the client needs to perform with the resource
+	// specifies the operation that the client needs to perform with the resource
 	Op KubeClientOp `protobuf:"varint,2,opt,name=op,proto3,enum=provider.KubeClientOp" json:"op,omitempty"`
-	// subresource that the client must perform the action on
+	// an optional sub-resource that is needed to specified for a subset of the supported client operations
 	SubResource *SubResource `protobuf:"varint,3,opt,name=subResource,proto3,enum=provider.SubResource,oneof" json:"subResource,omitempty"`
 }
 

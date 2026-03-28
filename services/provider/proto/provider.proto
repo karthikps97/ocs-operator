@@ -82,9 +82,9 @@ message GetDesiredClientStateRequest{
 message KubeObject {
     // Bytes holds the serialized bytes of the kube object
     bytes bytes  = 1;
-    // specifies the action that the client needs to perform with the resource
+    // specifies the operation that the client needs to perform with the resource
     kubeClientOp op = 2;
-    // subresource that the client must perform the action on
+    // an optional sub-resource that is needed to specified for a subset of the supported client operations
     optional subResource subResource = 3;
 }
 
