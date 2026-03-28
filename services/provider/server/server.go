@@ -124,7 +124,7 @@ type sanitizeFlags struct {
 type kubeResource struct {
 	kubeObject  client.Object
 	clientOp    pb.KubeClientOp
-	subResource pb.SubResource
+	subResource *pb.SubResource
 }
 
 func NewOCSProviderServer(ctx context.Context, namespace string) (*OCSProviderServer, error) {
@@ -349,7 +349,7 @@ func (s *OCSProviderServer) GetDesiredClientState(ctx context.Context, req *pb.G
 			response.KubeObjects = append(response.KubeObjects, &pb.KubeObject{
 				Bytes:       kubeResourceBytes,
 				Op:          kubeResources[i].clientOp,
-				SubResource: &kubeResources[i].subResource,
+				SubResource: kubeResources[i].subResource,
 			})
 		}
 
@@ -2271,6 +2271,7 @@ func (s *OCSProviderServer) appendOBCResources(
 		secret.Namespace = remoteOBCNamespace
 		obc.Name = remoteOBCName
 		obc.Namespace = remoteOBCNamespace
+		statusSubResource := pb.SubResource_SUB_RESOURCE_STATUS
 
 		kubeResources = append(kubeResources,
 			kubeResource{
@@ -2288,7 +2289,7 @@ func (s *OCSProviderServer) appendOBCResources(
 			kubeResource{
 				kubeObject:  obc,
 				clientOp:    pb.KubeClientOp_UPDATE_SUB_RESOURCE,
-				subResource: pb.SubResource_SUB_RESOURCE_STATUS,
+				subResource: &statusSubResource,
 			},
 		)
 	}
